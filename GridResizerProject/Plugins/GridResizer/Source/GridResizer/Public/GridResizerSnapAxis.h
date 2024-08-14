@@ -3,21 +3,21 @@
 UENUM()
 enum class ESnapAxis : uint8
 {
-	X_Axis = 0 UMETA(DisplayName = "X Axis"),
-	Y_Axis = 1 UMETA(DisplayName = "Y Axis"),
-	Z_Axis = 2 UMETA(DisplayName = "Z Axis"),
-	XYZ_Axis = 3 UMETA(DisplayName = "XYZ Axis")
+    X_Axis = 0 UMETA(DisplayName = "X Axis"),
+    Y_Axis = 1 UMETA(DisplayName = "Y Axis"),
+    Z_Axis = 2 UMETA(DisplayName = "Z Axis"),
+    XYZ_Axis = 3 UMETA(DisplayName = "XYZ Axis")
 };
 
 UENUM()
 enum class ESnapType : uint8
 {
-	Location = 0 UMETA(DisplayName = "Location"),
-	LocationPow2 UMETA(DisplayName = "Location Pow 2"),
-	RotationCommon UMETA(DisplayName = "Rotation Common"),
-	Rotation360 UMETA(DisplayName = "Rotation 360°"),
-	Scale UMETA(DisplayName = "Scale"),
-	Count UMETA(Hidden)
+    Location = 0 UMETA(DisplayName = "Location"),
+    LocationPow2 UMETA(DisplayName = "Location Pow 2"),
+    RotationCommon UMETA(DisplayName = "Rotation Common"),
+    Rotation360 UMETA(DisplayName = "Rotation 360°"),
+    Scale UMETA(DisplayName = "Scale"),
+    Count UMETA(Hidden)
 };
 
 ENUM_RANGE_BY_COUNT(ESnapType, ESnapType::Count);
