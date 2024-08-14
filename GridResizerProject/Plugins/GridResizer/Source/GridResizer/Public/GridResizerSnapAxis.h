@@ -4,9 +4,9 @@ UENUM()
 enum class ESnapAxis : uint8
 {
     X_Axis = 0 UMETA(DisplayName = "X Axis"),
-    Y_Axis = 1 UMETA(DisplayName = "Y Axis"),
-    Z_Axis = 2 UMETA(DisplayName = "Z Axis"),
-    XYZ_Axis = 3 UMETA(DisplayName = "XYZ Axis")
+    Y_Axis UMETA(DisplayName = "Y Axis"),
+    Z_Axis UMETA(DisplayName = "Z Axis"),
+    XYZ_Axis UMETA(DisplayName = "XYZ Axis")
 };
 
 UENUM()

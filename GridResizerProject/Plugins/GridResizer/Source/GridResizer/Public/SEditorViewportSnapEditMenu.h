@@ -5,6 +5,13 @@
 struct FSlateBrush;
 class UToolMenu;
 
+UENUM()
+enum class EReorderType : uint8
+{
+    Ascending = 0 UMETA(DisplayName = "Ascending"),
+    Descending UMETA(DisplayName = "Descending")
+};
+
 class SEditorViewportSnapEditMenu : public SEditorViewportToolbarMenu
 {
 public:
@@ -14,8 +21,8 @@ public:
 	
     void Construct(const FArguments& InArgs, TSharedRef<class SViewportToolBar> InParentToolBar);
 
-    ESnapType GetSnapEditType() const { return SnapEditType; }
-
+    ESnapType GetEditSnapType() const { return EditSnapType; }
+    int32 GetEditSnapSizeIndex() const { return EditSnapSizeIndex; }
 private:
 
     //Create Menu
@@ -25,6 +32,8 @@ private:
     TSharedRef<SWidget> FillSnapEditMenuLeft(UToolMenu* Menu);
     TSharedRef<SWidget> FillSnapEditMenuRight(UToolMenu* Menu);
     FSlateColor GetEditSnapMenuForegroundColor() const;
+
+    //LEFT
     
     //Snap Type
     TSharedRef<SWidget> GenerateSnapTypesMenuWidget();
@@ -37,12 +46,26 @@ private:
     void OnEditSnapSizeChangedList(TSharedPtr<float> Value, ESelectInfo::Type SelectInfo);
     void OnEditSnapSizeChanged(ECheckBoxState State, const int32 SnapSizeIndex);
     TArray<float> GetSnapSizesForSnapType(const ESnapType& SnapType);
+    void SetSnapSizesForList(const TArray<float>& SnapSizes);
+    void SetSnapSizesForSnapType(const TArray<float>& SnapSizes, const ESnapType& SnapType);
+    void SetCurrentSnapSizeForSnapType(const int32 SnapSizeIndex, const ESnapType& SnapType);
     ECheckBoxState IsThisEditSnapSizeSelected(const int32 SnapSizeIndex) const;
 
+    //RIGHT
+
+    //Reorder
+    FReply OnReorderSnapSizesButtonClicked(const EReorderType ReorderType);
+
+    //Edit
+    FReply OnRemoveSnapSizeButtonClicked();
+    
 private:
     static const FName BaseMenuName;
-    
+
+    TSharedPtr<SListView<TSharedPtr<float>>> SnapSizesList;
     TArray<TSharedPtr<float>> SnapSizesListEntries;
-    int32 SnapEditSizeIndex = -1;
-    ESnapType SnapEditType = ESnapType::Location;
+    int32 EditSnapSizeIndex = -1;
+    ESnapType EditSnapType = ESnapType::Location;
+
+    FSlateColorBrush* BrushBlack;
 };

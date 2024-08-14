@@ -10,8 +10,9 @@ const FName SEditorViewportSnapEditMenu::BaseMenuName("UnrealEd.ViewportToolbar.
 void SEditorViewportSnapEditMenu::Construct(const FArguments& InArgs, TSharedRef<SViewportToolBar> InParentToolBar)
 {
     MenuName = BaseMenuName;
-    SnapEditType = ESnapType::Location;
-
+    EditSnapType = ESnapType::Location;
+    BrushBlack = new FSlateColorBrush(FLinearColor(0.1f, 0.1f, 0.1f, 1.f));
+    
     SEditorViewportToolbarMenu::Construct
     (
         SEditorViewportToolbarMenu::FArguments()
@@ -52,16 +53,18 @@ void SEditorViewportSnapEditMenu::RegisterMenus() const
 
 void SEditorViewportSnapEditMenu::FillSnapEditMenu(UToolMenu* Menu)
 {
-    GetSnapSizesForSnapType(SnapEditType);
+    SetSnapSizesForList(GetSnapSizesForSnapType(EditSnapType));
+    
     {
     	FToolMenuSection& Section = Menu->AddSection("MainSection", LOCTEXT("MainSectionHeader", ""));
     	TSharedPtr<SGridPanel> GridPanel = SNew(SGridPanel)
-    	    .ForceVolatile(true)
     	    + SGridPanel::Slot(0, 0)
+    	    .Padding(3.f, 2.f, 5.f, 2.5f)
     	    [
     	        FillSnapEditMenuLeft(Menu)	
     	    ]
     	    + SGridPanel::Slot(1, 0)
+    	    .Padding(2.5f, 2.f, 3.f, 0.f)
     	    [
     	        FillSnapEditMenuRight(Menu)
     	    ];
@@ -96,7 +99,7 @@ TSharedRef<SWidget> SEditorViewportSnapEditMenu::FillSnapEditMenuLeft(UToolMenu*
     	LeftMenuBuilder.BeginSection("SnapSizesChooseMenu", FText::FromString("Snap Sizes"));
         {
             LeftMenuBuilder.AddWidget(
-           SNew(SListView<TSharedPtr<float>>)
+           SAssignNew(SnapSizesList, SListView<TSharedPtr<float>>)
            .ListItemsSource(&SnapSizesListEntries)
            .SelectionMode(ESelectionMode::Single)
            .OnGenerateRow(this, &SEditorViewportSnapEditMenu::HandleRowGenerationWidget)
@@ -113,7 +116,85 @@ TSharedRef<SWidget> SEditorViewportSnapEditMenu::FillSnapEditMenuLeft(UToolMenu*
 
 TSharedRef<SWidget> SEditorViewportSnapEditMenu::FillSnapEditMenuRight(UToolMenu* Menu)
 {
-    FMenuBuilder RightMenuBuilder(false, TSharedPtr<FUICommandList>());
+    FMenuBuilder RightMenuBuilder(false, TSharedPtr<FUICommandList>(), TSharedPtr<FExtender>(), true);
+    //Reorder Ascending
+    //Reorder Descending
+    
+    //Add Snap Size: [Value]
+    //Edit Snap Size: (Selected Value) (Changes automatically when a new value is chosen)
+    //Remove (Selected value) (Only Highlighted when a value is chosen)
+
+    //Add Preset: [Name]
+    //Remove Preset: (Current Preset)
+    {
+        RightMenuBuilder.BeginSection("Reorder", LOCTEXT("ReorderSnapSize_Header", "Reorder Snap Sizes"));
+        {
+            RightMenuBuilder.AddWidget
+            (
+                SNew(SBorder)
+                //.Padding()
+                //.BorderBackgroundColor(FLinearColor::Black)
+                .BorderImage(BrushBlack)
+                .Content()
+                [
+                    SNew(SVerticalBox)
+                    + SVerticalBox::Slot()
+                    .Padding(2.f, 3.f, 2.f, 1.f)
+                    [
+                        SNew(SButton)
+                        .OnClicked(this, &SEditorViewportSnapEditMenu::OnReorderSnapSizesButtonClicked, EReorderType::Ascending)
+                        .Content()
+                        [
+                            SNew(STextBlock)
+                            .Text(FText::FromString("Ascending"))
+                        ]
+                    ]
+                    + SVerticalBox::Slot()
+                    .Padding(2.f, 1.f, 2.f, 3.f)
+                    [
+                        SNew(SButton)
+                        .OnClicked(this, &SEditorViewportSnapEditMenu::OnReorderSnapSizesButtonClicked, EReorderType::Descending)
+                        .Content()
+                        [
+                            SNew(STextBlock)
+                            .Text(FText::FromString("Descending"))
+                        ]
+                    ]
+                ],
+                FText::GetEmpty()
+            );
+        }
+        RightMenuBuilder.EndSection();
+    }
+
+    {
+        RightMenuBuilder.BeginSection("EditSnapSizeList", LOCTEXT("EditSnapSizeList_Header", "Edit Snap Sizes"));
+        {
+            RightMenuBuilder.AddWidget(
+            SNew(SBorder)
+            .Padding(0.f, 10.f, 0.f, 0.f)
+            //.BorderBackgroundColor(FLinearColor::Black)
+            .BorderImage(BrushBlack)
+            .Content()
+            [
+                SNew(SVerticalBox)
+                + SVerticalBox::Slot()
+                .Padding(2.f, 1.f, 2.f, 3.f)
+                [
+                    SNew(SButton)
+                    .OnClicked(this, &SEditorViewportSnapEditMenu::OnRemoveSnapSizeButtonClicked)
+                    .Content()
+                    [
+                        SNew(STextBlock)
+                        .Text(FText::FromString("Remove"))
+                    ]
+                ]
+            ],
+                FText::GetEmpty());
+        }
+        RightMenuBuilder.EndSection();
+    }
+    
     return RightMenuBuilder.MakeWidget();
 }
 
@@ -169,40 +250,41 @@ TSharedRef<SWidget> SEditorViewportSnapEditMenu::GenerateSnapTypesMenuWidget()
 
 void SEditorViewportSnapEditMenu::SetEditSnapType(const ESnapType NewSnapEditType)
 {
-    if(NewSnapEditType == SnapEditType)
+    if(NewSnapEditType == EditSnapType)
         return;
     
-    SnapEditSizeIndex = -1;
-    SnapEditType = NewSnapEditType;
-    GetSnapSizesForSnapType(SnapEditType);
+    EditSnapSizeIndex = -1;
+    EditSnapType = NewSnapEditType;
+    SetSnapSizesForList(GetSnapSizesForSnapType(EditSnapType));
+    SnapSizesList->RequestListRefresh();
 }
 
 FText SEditorViewportSnapEditMenu::GetEditSnapTypeButtonLabel() const
 {
-    return FText::Format(LOCTEXT("SnapEditType_ToolTip", "{0} Snap"), StaticEnum<ESnapType>()->GetDisplayNameTextByValue(static_cast<uint8>(SnapEditType)));
+    return FText::Format(LOCTEXT("SnapEditType_ToolTip", "{0} Snap"), StaticEnum<ESnapType>()->GetDisplayNameTextByValue(static_cast<uint8>(EditSnapType)));
 }
 
 bool SEditorViewportSnapEditMenu::IsThisEditSnapTypeSelected(const ESnapType SnapEditTypeToCheck) const
 {
-    return SnapEditType == SnapEditTypeToCheck;
+    return EditSnapType == SnapEditTypeToCheck;
 }
 
 TSharedRef<ITableRow> SEditorViewportSnapEditMenu::HandleRowGenerationWidget(const TSharedPtr<float> InItem, const TSharedRef<STableViewBase>& OwnerTable)
 {
-    int Index = -1;
-    SnapSizesListEntries.Find(InItem, Index);
-
+    int FIndex = -1;
+    SnapSizesListEntries.Find(InItem, FIndex);
+    
     return
         SNew( STableRow<TSharedPtr<SCheckBox>>, OwnerTable)
         [
             SNew(SCheckBox)
                 .Style(FAppStyle::Get(), "DetailsView.SectionButton")
-                .OnCheckStateChanged(this, &SEditorViewportSnapEditMenu::OnEditSnapSizeChanged, Index)
-                .IsChecked(this, &SEditorViewportSnapEditMenu::IsThisEditSnapSizeSelected, Index)
+                .OnCheckStateChanged(this, &SEditorViewportSnapEditMenu::OnEditSnapSizeChanged, FIndex)
+                .IsChecked(this, &SEditorViewportSnapEditMenu::IsThisEditSnapSizeSelected, FIndex)
                 [
-                        SNew(STextBlock)
-                        .TextStyle(FAppStyle::Get(), "SmallText")
-                        .Text(FText::Format(LOCTEXT("SnapSizeListCheckBoxEntry_ToolTip", "{0}"), *InItem))
+                    SNew(STextBlock)
+                    .TextStyle(FAppStyle::Get(), "SmallText")
+                    .Text(FText::Format(LOCTEXT("SnapSizeListCheckBoxEntry_ToolTip", "{0}"), *InItem))
                 ]
         ];
 }
@@ -214,44 +296,124 @@ void SEditorViewportSnapEditMenu::OnEditSnapSizeChangedList(TSharedPtr<float> Va
 
 void SEditorViewportSnapEditMenu::OnEditSnapSizeChanged(const ECheckBoxState State, const int32 SnapSizeIndex)
 {
-    State == ECheckBoxState::Checked ? SnapEditSizeIndex = SnapSizeIndex : SnapEditSizeIndex = -1;
+    State == ECheckBoxState::Checked ? EditSnapSizeIndex = SnapSizeIndex : EditSnapSizeIndex = -1;
+    UE_LOG(LogTemp, Warning, TEXT("INDEX: %d"), EditSnapSizeIndex);
 }
 
 TArray<float> SEditorViewportSnapEditMenu::GetSnapSizesForSnapType(const ESnapType& SnapType)
 {
     const ULevelEditorViewportSettings* ViewportSettings = GetMutableDefault<ULevelEditorViewportSettings>();
-    TArray<float> SnapSizes;
-    SnapSizesListEntries.Empty();
     
     switch (SnapType)
     {
     case ESnapType::Location:
-    	SnapSizes =  ViewportSettings->DecimalGridSizes;
-    	break;
+    	return ViewportSettings->DecimalGridSizes;
     case ESnapType::LocationPow2:
-    	SnapSizes = ViewportSettings->Pow2GridSizes;
-    	break;
+    	return ViewportSettings->Pow2GridSizes;
     case ESnapType::RotationCommon:
-    	SnapSizes =  ViewportSettings->CommonRotGridSizes;
-    	break;
+    	return ViewportSettings->CommonRotGridSizes;
     case ESnapType::Rotation360:
-    	SnapSizes = ViewportSettings->DivisionsOf360RotGridSizes;
-    	break;
+    	return ViewportSettings->DivisionsOf360RotGridSizes;
     case ESnapType::Scale:
-    	SnapSizes = ViewportSettings->ScalingGridSizes;
-    	break;
+    	return ViewportSettings->ScalingGridSizes;
     default:
-    	return SnapSizes;
+    	return TArray<float>();
     }
+}
 
+void SEditorViewportSnapEditMenu::SetSnapSizesForList(const TArray<float>& SnapSizes)
+{
+    SnapSizesListEntries.Empty();
     for(int i = 0; i < SnapSizes.Num(); i++)
     {
-    	SnapSizesListEntries.Add(MakeShareable((new float(SnapSizes[i]))));
+        SnapSizesListEntries.Add(MakeShareable((new float(SnapSizes[i]))));
     }
-    return SnapSizes;
+}
+
+void SEditorViewportSnapEditMenu::SetSnapSizesForSnapType(const TArray<float>& SnapSizes, const ESnapType& SnapType)
+{
+    ULevelEditorViewportSettings* ViewportSettings = GetMutableDefault<ULevelEditorViewportSettings>();
+    
+    switch (SnapType)
+    {
+        case ESnapType::Location:
+            ViewportSettings->DecimalGridSizes = SnapSizes;
+            break;
+        case ESnapType::LocationPow2:
+            ViewportSettings->Pow2GridSizes = SnapSizes;
+            break;
+        case ESnapType::RotationCommon:
+            ViewportSettings->CommonRotGridSizes = SnapSizes;
+            break;
+        case ESnapType::Rotation360:
+            ViewportSettings->DivisionsOf360RotGridSizes = SnapSizes;
+            break;
+        case ESnapType::Scale:
+            ViewportSettings->ScalingGridSizes = SnapSizes;
+            break;
+        default:
+            break;
+    }
+}
+
+void SEditorViewportSnapEditMenu::SetCurrentSnapSizeForSnapType(const int32 SnapSizeIndex, const ESnapType& SnapType)
+{
+    ULevelEditorViewportSettings* ViewportSettings = GetMutableDefault<ULevelEditorViewportSettings>();
+    
+    switch (SnapType)
+    {
+        case ESnapType::Location:
+        case ESnapType::LocationPow2:
+            ViewportSettings->CurrentPosGridSize = SnapSizeIndex;
+            break;
+        case ESnapType::RotationCommon:
+        case ESnapType::Rotation360:
+            ViewportSettings->CurrentRotGridSize = SnapSizeIndex;
+            break;
+        case ESnapType::Scale:
+            ViewportSettings->CurrentScalingGridSize = SnapSizeIndex;
+            break;
+        default:
+            break;
+    }
 }
 
 ECheckBoxState SEditorViewportSnapEditMenu::IsThisEditSnapSizeSelected(const int32 SnapSizeIndex) const
 {
-    return SnapEditSizeIndex == SnapSizeIndex ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+    return EditSnapSizeIndex == SnapSizeIndex ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+}
+
+FReply SEditorViewportSnapEditMenu::OnReorderSnapSizesButtonClicked(const EReorderType ReorderType)
+{
+    TArray<float> SnapSizes = GetSnapSizesForSnapType(EditSnapType);
+    SnapSizes.Sort();
+    
+    if(ReorderType == EReorderType::Descending)
+        Algo::Reverse(SnapSizes);
+    
+    EditSnapSizeIndex = SnapSizes.Num() - 1 - EditSnapSizeIndex;
+    SetSnapSizesForSnapType(SnapSizes, EditSnapType);
+    SetSnapSizesForList(SnapSizes);
+    SetCurrentSnapSizeForSnapType(EditSnapSizeIndex, EditSnapType);
+    SnapSizesList->RequestListRefresh();
+    
+    return FReply::Handled();
+}
+
+FReply SEditorViewportSnapEditMenu::OnRemoveSnapSizeButtonClicked()
+{
+    TArray<float> SnapSizes = GetSnapSizesForSnapType(EditSnapType);
+    if(EditSnapSizeIndex < 0 || EditSnapSizeIndex >= SnapSizes.Num())
+        return FReply::Handled();
+    
+    SnapSizes.RemoveAt(EditSnapSizeIndex);
+    
+    if(EditSnapSizeIndex >= SnapSizes.Num())
+        EditSnapSizeIndex = SnapSizes.Num() - 1;
+    SetSnapSizesForSnapType(SnapSizes, EditSnapType);
+    SetSnapSizesForList(SnapSizes);
+    SetCurrentSnapSizeForSnapType(EditSnapSizeIndex, EditSnapType);
+    SnapSizesList->RequestListRefresh();
+    
+    return FReply::Handled();
 }
