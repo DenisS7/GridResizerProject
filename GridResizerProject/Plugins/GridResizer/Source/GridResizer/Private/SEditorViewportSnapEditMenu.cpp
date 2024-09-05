@@ -363,12 +363,20 @@ void SEditorViewportSnapEditMenu::SetCurrentSnapSizeForSnapType(const int32 Snap
     switch (SnapType)
     {
         case ESnapType::Location:
+            if(!ViewportSettings->bUsePowerOf2SnapSize && ViewportSettings->CurrentPosGridSize > SnapSizeIndex)
+                ViewportSettings->CurrentPosGridSize = SnapSizeIndex;
+            break;
         case ESnapType::LocationPow2:
-            ViewportSettings->CurrentPosGridSize = SnapSizeIndex;
+            if(ViewportSettings->bUsePowerOf2SnapSize && ViewportSettings->CurrentPosGridSize > SnapSizeIndex)
+                ViewportSettings->CurrentPosGridSize = SnapSizeIndex;
             break;
         case ESnapType::RotationCommon:
+            if(ViewportSettings->CurrentRotGridMode == ERotationGridMode::GridMode_Common && ViewportSettings->CurrentRotGridMode > SnapSizeIndex)
+                ViewportSettings->CurrentRotGridSize = SnapSizeIndex;
+            break;
         case ESnapType::Rotation360:
-            ViewportSettings->CurrentRotGridSize = SnapSizeIndex;
+            if(ViewportSettings->CurrentRotGridMode == ERotationGridMode::GridMode_DivisionsOf360 && ViewportSettings->CurrentRotGridMode > SnapSizeIndex)
+                ViewportSettings->CurrentRotGridSize = SnapSizeIndex;
             break;
         case ESnapType::Scale:
             ViewportSettings->CurrentScalingGridSize = SnapSizeIndex;
